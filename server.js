@@ -2,7 +2,8 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const bannerRoutes = require('./routes/bannerRoutes');
-const jobRoutes = require('./routes/jobRoutes'); // Import module Jobs
+const jobRoutes = require('./routes/jobRoutes');
+const hotlineRoutes = require('./routes/hotlineRoutes'); // ✅ THÊM DÒNG NÀY: Import router Hotline
 const pool = require('./routes/database');
 
 const app = express();
@@ -11,21 +12,14 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Phục vụ thư mục tĩnh public công khai (nếu có dùng lưu file cục bộ)
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// ✅ ĐÃ SỬA: Đăng ký đầy đủ các tuyến đường API phục vụ Frontend
+// KHAI BÁO CÁC TUYẾN ĐƯỜNG API ĐIỀU HƯỚNG CHÍNH THỨC
 app.use('/api/banners', bannerRoutes);
-app.use('/api/jobs', jobRoutes); // Kích hoạt endpoint /api/jobs tránh lỗi 404
+app.use('/api/jobs', jobRoutes);
+app.use('/api/hotlines', hotlineRoutes); // ✅ THÊM DÒNG NÀY: Kích hoạt tuyến hotline thực tế
 
-// 🛠️ MOCK TẠM ENDPOINT HOTLINE & UTILITIES ĐỂ TRÁNH LỖI ĐỒNG LOẠT TRÊN FRONTEND
-app.get('/api/hotlines', (req, res) => {
-    res.json([
-        { id: 1, name: "Hotline Kỹ Thuật", phone: "0901234567" },
-        { id: 2, name: "Phòng Kinh Doanh", phone: "0907654321" }
-    ]);
-});
-
+// MOCK TẠM ENDPOINT UTILITIES ĐỂ TRÁNH LỖI FRONTEND (NẾU CÓ)
 app.get('/api/utilities', (req, res) => {
     res.json([
         { id: 1, name: "Tính toán cơ khí", status: "Active" }
