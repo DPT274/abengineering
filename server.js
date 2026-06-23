@@ -3,7 +3,7 @@ const path = require('path');
 const cors = require('cors');
 const bannerRoutes = require('./routes/bannerRoutes');
 const jobRoutes = require('./routes/jobRoutes');
-const hotlineRoutes = require('./routes/hotlineRoutes'); // ✅ THÊM DÒNG NÀY: Import router Hotline
+const hotlineRoutes = require('./routes/hotlineRoutes');
 const pool = require('./routes/database');
 
 const app = express();
@@ -17,7 +17,25 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 // KHAI BÁO CÁC TUYẾN ĐƯỜNG API ĐIỀU HƯỚNG CHÍNH THỨC
 app.use('/api/banners', bannerRoutes);
 app.use('/api/jobs', jobRoutes);
-app.use('/api/hotlines', hotlineRoutes); // ✅ THÊM DÒNG NÀY: Kích hoạt tuyến hotline thực tế
+app.use('/api/hotlines', hotlineRoutes);
+
+// ✅ ĐÃ THÊM: MOCK TẠM API SẢN PHẨM NỔI BẬT ĐỂ FIX LỖI 404 TRANG CHỦ ZALO
+app.get('/api/connections', (req, res) => {
+    res.json([
+        {
+            id: 1,
+            title: "Gia công đồ gá chính xác",
+            image: "https://placehold.co/600x400/1e3a8a/white?text=Do+Ga+CNC",
+            link: ""
+        },
+        {
+            id: 2,
+            title: "Thiết kế khuôn mẫu",
+            image: "https://placehold.co/600x400/dc2626/white?text=Khuon+Mau",
+            link: ""
+        }
+    ]);
+});
 
 // MOCK TẠM ENDPOINT UTILITIES ĐỂ TRÁNH LỖI FRONTEND (NẾU CÓ)
 app.get('/api/utilities', (req, res) => {
