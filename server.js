@@ -19,29 +19,14 @@ app.use('/api/banners', bannerRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/hotlines', hotlineRoutes);
 
-// ✅ ĐÃ THÊM: MOCK TẠM API SẢN PHẨM NỔI BẬT ĐỂ FIX LỖI 404 TRANG CHỦ ZALO
+// ✅ ĐÃ SỬA: Trả về mảng trống sạch sẽ cho connections, không tự thêm ảnh mẫu nữa
 app.get('/api/connections', (req, res) => {
-    res.json([
-        {
-            id: 1,
-            title: "Gia công đồ gá chính xác",
-            image: "https://placehold.co/600x400/1e3a8a/white?text=Do+Ga+CNC",
-            link: ""
-        },
-        {
-            id: 2,
-            title: "Thiết kế khuôn mẫu",
-            image: "https://placehold.co/600x400/dc2626/white?text=Khuon+Mau",
-            link: ""
-        }
-    ]);
+    res.json([]);
 });
 
-// MOCK TẠM ENDPOINT UTILITIES ĐỂ TRÁNH LỖI FRONTEND (NẾU CÓ)
+// MOCK TẠM ENDPOINT UTILITIES ĐỂ TRÁNH LỖI FRONTEND
 app.get('/api/utilities', (req, res) => {
-    res.json([
-        { id: 1, name: "Tính toán cơ khí", status: "Active" }
-    ]);
+    res.json([]);
 });
 
 // Route trang chủ kiểm tra tình trạng kết nối hệ thống
