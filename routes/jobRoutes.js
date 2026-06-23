@@ -7,14 +7,13 @@ const { createClient } = require('@supabase/supabase-js');
 const router = express.Router();
 
 const SUPABASE_URL = "https://btuyyddawdvqlviiyxyj.supabase.co";
-// ⚠️ Dán mã anon key chuẩn của project abengineering vào đây:
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0dXl5ZGRhd2R2cWx2aWl5eHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjI3MTYsImV4cCI6MjA5NjgzODcxNn0.pO5PzQN7iIkUPDSzaB0zs-BbO5dtpDvdYS5fyKhIkOo";
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// 1. API: Lấy danh sách việc làm (Dùng chung cho cả Admin và User Zalo)
+// 1. API: Lấy danh sách việc làm công khai
 router.get('/', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM jobs ORDER BY id DESC');
@@ -25,13 +24,12 @@ router.get('/', async (req, res) => {
     }
 });
 
-// 2. API: Đăng tin tuyển dụng mới kèm ảnh lên Storage
+// 2. API: Đăng tin tuyển dụng mới kèm ảnh lên Cloud Storage
 router.post('/', upload.single('image'), async (req, res) => {
     try {
         const { title, company, salary, expertise, contact, email, description, requirements, benefits, location, deadline } = req.body;
         let imageUrl = null;
 
-        // Nếu có tải ảnh lên, tiến hành đẩy vào bucket 'jobs'
         if (req.file) {
             const filename = `job-${Date.now()}${path.extname(req.file.originalname)}`;
             const { data, error } = await supabase.storage
@@ -60,21 +58,18 @@ router.post('/', upload.single('image'), async (req, res) => {
     }
 });
 
-// 3. API: Cập nhật thông tin tuyển dụng (Hỗ trợ sửa ảnh hoặc giữ ảnh cũ)
+// 3. API: Cập nhật thông tin tuyển dụng
 router.put('/:id', upload.single('image'), async (req, res) => {
     try {
         const { id } = req.params;
         const { title, company, salary, expertise, contact, email, description, requirements, benefits, location, deadline } = req.body;
 
-        // Lấy thông tin tin cũ ra xem trước đó có ảnh không
         const checkRes = await pool.query('SELECT image FROM jobs WHERE id = $1', [id]);
         if (checkRes.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy tin tuyển dụng' });
 
         let imageUrl = checkRes.rows[0].image;
 
-        // Nếu người dùng chọn file ảnh mới thay thế
         if (req.file) {
-            // Xóa ảnh cũ trên storage nếu có để sạch bộ nhớ
             if (imageUrl) {
                 const oldFilename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
                 await supabase.storage.from('jobs').remove([oldFilename]);
@@ -105,7 +100,7 @@ router.put('/:id', upload.single('image'), async (req, res) => {
     }
 });
 
-// 4. API: Xóa tin tuyển dụng (Xóa sạch bản ghi và file ảnh đi kèm)
+// 4. API: Xóa tin tuyển dụng
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
