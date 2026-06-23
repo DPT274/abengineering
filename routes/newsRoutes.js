@@ -47,7 +47,39 @@ router.post('/', upload.single('image'), async (req, res) => {
     }
 });
 
-// 3. API: Xóa bài viết tin tức
+// 3. API: Cập nhật tin tức (Sửa bài)
+router.put('/:id', upload.single('image'), async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, content } = req.body;
+
+        const checkRes = await pool.query('SELECT image FROM news WHERE id = $1', [id]);
+        if (checkRes.rows.length === 0) return res.status(404).json({ error: 'Không tìm thấy bài viết' });
+
+        let imageUrl = checkRes.rows[0].image;
+
+        if (req.file) {
+            if (imageUrl) {
+                const oldFilename = imageUrl.substring(imageUrl.lastIndexOf('/') + 1);
+                await supabase.storage.from('news').remove([oldFilename]);
+            }
+            const filename = `news-${Date.now()}${path.extname(req.file.originalname)}`;
+            await supabase.storage.from('news').upload(filename, req.file.buffer, { contentType: req.file.mimetype, upsert: true });
+            imageUrl = supabase.storage.from('news').getPublicUrl(filename).data.publicUrl;
+        }
+
+        const updated = await pool.query(
+            'UPDATE news SET title=$1, content=$2, image=$3 WHERE id=$4 RETURNING *',
+            [title, content, imageUrl, id]
+        );
+        res.json(updated.rows[0]);
+    } catch (err) {
+        console.error("Lỗi PUT news:", err);
+        res.status(500).json({ error: 'Lỗi khi cập nhật bài viết' });
+    }
+});
+
+// 4. API: Xóa bài viết tin tức
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
