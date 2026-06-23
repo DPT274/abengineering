@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const bannerRoutes = require('./routes/bannerRoutes');
+const jobRoutes = require('./routes/jobRoutes');
 const pool = require('./routes/database');
 
 const app = express();
