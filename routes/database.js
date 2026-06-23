@@ -2,7 +2,8 @@ const { Pool } = require('pg');
 
 const pool = new Pool({
     user: 'postgres.btuyyddawdvqlviiyxyj',
-    host: 'aws-1-ap-southeast-1.pooler.southeast-1.pooler.supabase.com', // Cấu hình Pool có sẵn từ lúc đầu của Tài
+    // ✅ ĐÃ SỬA: Bỏ đoạn chuỗi trùng lặp, chỉ giữ lại 1 cụm duy nhất
+    host: 'aws-1-ap-southeast-1.pooler.supabase.com',
     database: 'postgres',
     password: 'PhuocTai2026@',
     port: 5432,
