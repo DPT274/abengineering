@@ -1,32 +1,39 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const bannerRoutes = require('./routes/bannerRoutes'); // Gọi chính xác thư mục routes ngang hàng
-const pool = require('./routes/database');            // Gọi để test kết nối trực tiếp
+const bannerRoutes = require('./routes/bannerRoutes');
+const pool = require('./routes/database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Các Middleware cơ bản
 app.use(cors());
 app.use(express.json());
 
-// Phục vụ thư mục static chứa ảnh công khai
-app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
-
-// Nhúng module quản lý banner vào đường dẫn chung /api/banners
+// Điều hướng API chính
 app.use('/api/banners', bannerRoutes);
 
-// Kích hoạt ping test kiểm tra thông tin tài khoản Supabase ngay lập tức
-pool.query('SELECT NOW()', (err, res) => {
-    if (err) {
-        console.error('\n❌ Kết nối Supabase THẤT BẠI rồi Tài ơi! Kiểm tra lại mật khẩu:', err.message);
-    } else {
-        console.log('\n✅ KẾT NỐI SUPABASE THÀNH CÔNG RỰC RỠ! Thời gian hệ thống AWS:', res.rows[0].now);
+// Route kiểm tra nhanh tình trạng online trên trình duyệt
+app.get('/', async (req, res) => {
+    try {
+        const dbTest = await pool.query('SELECT NOW()');
+        res.status(200).json({
+            status: "ONLINE",
+            message: "Hệ thống API AB Engineering hoạt động mượt mà!",
+            database: {
+                connected: true,
+                server_time: dbTest.rows[0].now
+            }
+        });
+    } catch (err) {
+        res.status(500).json({
+            status: "ERROR",
+            message: "Không thể thực hiện kết nối cơ sở dữ liệu!",
+            error: err.message
+        });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`\n🚀 Server AB Engineering đang chạy tại: http://localhost:${PORT}`);
-    console.log(`🔗 Link test API Banners: http://localhost:${PORT}/api/banners`);
+    console.log(`🚀 Server đang mở tại cổng: http://localhost:${PORT}`);
 });
