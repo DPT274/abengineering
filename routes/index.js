@@ -51,19 +51,25 @@ app.get('/', async (req, res) => {
 // =========================================================
 
 // 1. API Hứng dữ liệu từ Zalo Mini App của User
+// =========================================================
+// API DÀNH CHO YÊU CẦU GIA CÔNG TỪ USER
+// =========================================================
+
+// 1. API Hứng dữ liệu từ Zalo Mini App của User
 app.post('/api/machining-request', async (req, res) => {
     try {
-        const { id, date, services, material, fileName } = req.body;
+        // ĐÃ THÊM: phone và email
+        const { id, date, services, material, fileName, phone, email } = req.body;
 
-        // Chuyển mảng services thành JSON string để lưu vào PostgreSQL
         const servicesJson = JSON.stringify(services);
 
+        // ĐÃ SỬA: Thêm cột phone và email vào lệnh INSERT
         const query = `
-            INSERT INTO machining_requests (order_id, created_at, services, material, file_name, status)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO machining_requests (order_id, created_at, services, material, file_name, phone, email, status)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `;
 
-        await pool.query(query, [id, date, servicesJson, material, fileName, 'Chờ xử lý']);
+        await pool.query(query, [id, date, servicesJson, material, fileName, phone, email, 'Chờ xử lý']);
 
         res.status(200).json({ success: true, message: "Đã lưu yêu cầu thành công!" });
     } catch (error) {
@@ -83,6 +89,8 @@ app.get('/api/machining-history', async (req, res) => {
             services: typeof item.services === 'string' ? JSON.parse(item.services) : item.services,
             material: item.material,
             fileName: item.file_name,
+            phone: item.phone, // ĐÃ THÊM
+            email: item.email, // ĐÃ THÊM
             status: item.status
         }));
 
@@ -90,10 +98,4 @@ app.get('/api/machining-history', async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
-});
-
-// =========================================================
-
-app.listen(PORT, () => {
-    console.log("🚀 Server đầu não đang chạy tại cổng: " + PORT);
 });
