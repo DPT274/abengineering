@@ -1,11 +1,10 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const pool = require('./database'); // ✅ ĐÃ SỬA: Sửa lại đường dẫn import chính xác cùng cấp thư mục routes
+const pool = require('./database');
 
 const router = express.Router();
 
-// Cấu hình kết nối Supabase Cloud
 const SUPABASE_URL = "https://btuyyddawdvqlviiyxyj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0dXl5ZGRhd2R2cWx2aWl5eHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjI3MTYsImV4cCI6MjA5NjgzODcxNn0.pO5PzQN7iIkUPDSzaB0zs-BbO5dtpDvdYS5fyKhIkOo";
 
@@ -21,12 +20,12 @@ router.get('/', async (req, res) => {
         const result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
         res.json(result.rows);
     } catch (err) {
-        console.error("Lỗi GET projects:", err);
-        res.status(500).json({ error: 'Lỗi lấy danh sách dự án' });
+        console.error("❌ LỖI HỆ THỐNG GET PROJECTS:", err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
-// 2. Thêm mới dự án vào bảng projects (Upload ảnh lên bucket 'projects')
+// 2. Thêm mới dự án (Kiểm tra kỹ bucket mang tên 'projects')
 router.post('/', upload.single('image'), async (req, res) => {
     try {
         const { title, link } = req.body;
@@ -36,14 +35,18 @@ router.post('/', upload.single('image'), async (req, res) => {
 
         const filename = `project-${Date.now()}${path.extname(req.file.originalname)}`;
 
-        const { error } = await supabase.storage
+        // Đẩy ảnh lên Supabase Cloud - Chú ý tên bucket 'projects'
+        const { data: uploadData, error: uploadError } = await supabase.storage
             .from('projects')
             .upload(filename, req.file.buffer, {
                 contentType: req.file.mimetype,
                 upsert: true
             });
 
-        if (error) throw error;
+        if (uploadError) {
+            console.error("❌ LỖI UPLOAD ẢNH LÊN SUPABASE:", uploadError.message);
+            return res.status(500).json({ error: `Lỗi Supabase Storage: ${uploadError.message}` });
+        }
 
         const imageUrl = supabase.storage.from('projects').getPublicUrl(filename).data.publicUrl;
 
@@ -54,8 +57,8 @@ router.post('/', upload.single('image'), async (req, res) => {
 
         res.status(201).json(newProject.rows[0]);
     } catch (err) {
-        console.error("Lỗi POST project:", err);
-        res.status(500).json({ error: 'Lỗi khi thêm dự án mới' });
+        console.error("❌ LỖI LOGIC POST PROJECT:", err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -79,10 +82,12 @@ router.put('/:id', upload.single('image'), async (req, res) => {
             }
 
             const filename = `project-${Date.now()}${path.extname(req.file.originalname)}`;
-            await supabase.storage.from('projects').upload(filename, req.file.buffer, {
+            const { error: updateError } = await supabase.storage.from('projects').upload(filename, req.file.buffer, {
                 contentType: req.file.mimetype,
                 upsert: true
             });
+
+            if (updateError) throw updateError;
             imageUrl = supabase.storage.from('projects').getPublicUrl(filename).data.publicUrl;
         }
 
@@ -93,8 +98,8 @@ router.put('/:id', upload.single('image'), async (req, res) => {
 
         res.json(updated.rows[0]);
     } catch (err) {
-        console.error("Lỗi PUT project:", err);
-        res.status(500).json({ error: 'Lỗi cập nhật dự án' });
+        console.error("❌ LỖI NỘI BỘ PUT PROJECT:", err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
@@ -116,8 +121,8 @@ router.delete('/:id', async (req, res) => {
         }
         res.status(404).json({ error: 'Không tìm thấy dữ liệu' });
     } catch (err) {
-        console.error("Lỗi DELETE project:", err);
-        res.status(500).json({ error: 'Lỗi xóa dự án' });
+        console.error("❌ LỖI NỘI BỘ DELETE PROJECT:", err.message);
+        res.status(500).json({ error: err.message });
     }
 });
 
