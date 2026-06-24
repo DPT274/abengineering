@@ -9,8 +9,8 @@ let globalAboutData = {
     field1Title: "", field1Desc: "", field2Title: "", field2Desc: "", field3Title: "", field3Desc: "", field4Title: "", field4Desc: "", field5Title: "", field5Desc: ""
 };
 
-// 2. Biến lưu trữ đường link Zalo OA động
-let globalZaloOALink = "";
+// 2. Thay đổi: Dùng mảng động để Admin thêm bao nhiêu OA/Link cũng được
+let globalOAList = [];
 
 // ==========================================
 // 📖 CÁC API CHO MỤC GIỚI THIỆU (ABOUT)
@@ -35,29 +35,30 @@ router.post("/api/settings/about", (req, res) => {
 });
 
 // ==========================================
-// ⚙️ CÁC API CHO CẤU HÌNH ZALO OA (MỚI THÊM)
+// ⚙️ CÁC API CHO QUẢN LÝ DANH SÁCH OA/LINK
 // ==========================================
 
-// 🟢 GET: Lấy link Zalo OA hiện tại về cho Admin và trang chủ hiển thị
+// 🟢 GET: Lấy danh sách link hiện tại
 router.get("/api/settings/zalo-oa", (req, res) => {
     return res.status(200).json({
         success: true,
-        link: globalZaloOALink // Trả trực tiếp trường link ra ngoài đúng cấu pháp frontend cần fetch
+        data: globalOAList // Trả về mảng dữ liệu
     });
 });
 
-// 🔴 POST: Nhận link Zalo OA mới do Admin dán vào form và lưu lại
+// 🔴 POST: Nhận danh sách mảng do Admin đẩy lên
 router.post("/api/settings/zalo-oa", (req, res) => {
     try {
-        const { link } = req.body;
-        globalZaloOALink = link || ""; // Lưu chuỗi link vào bộ nhớ tạm
+        const { list } = req.body;
+        // Kiểm tra nếu là mảng thì lưu, không thì gán mảng rỗng
+        globalOAList = Array.isArray(list) ? list : [];
 
         return res.status(200).json({
             success: true,
-            message: "Cập nhật đường dẫn Zalo OA thành công!"
+            message: "Cập nhật danh sách liên kết thành công!"
         });
     } catch (err) {
-        return res.status(500).json({ success: false, error: "Lỗi ghi dữ liệu Zalo OA" });
+        return res.status(500).json({ success: false, error: "Lỗi ghi dữ liệu Liên kết" });
     }
 });
 
