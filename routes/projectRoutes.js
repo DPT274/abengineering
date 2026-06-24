@@ -1,14 +1,15 @@
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const pool = require('./database');
-const { createClient } = require('@supabase/supabase-js');
+const pool = require('./database'); // ✅ ĐÃ SỬA: Sửa lại đường dẫn import chính xác cùng cấp thư mục routes
 
 const router = express.Router();
 
 // Cấu hình kết nối Supabase Cloud
 const SUPABASE_URL = "https://btuyyddawdvqlviiyxyj.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ0dXl5ZGRhd2R2cWx2aWl5eHlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEyNjI3MTYsImV4cCI6MjA5NjgzODcxNn0.pO5PzQN7iIkUPDSzaB0zs-BbO5dtpDvdYS5fyKhIkOo";
+
+const { createClient } = require('@supabase/supabase-js');
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const storage = multer.memoryStorage();
