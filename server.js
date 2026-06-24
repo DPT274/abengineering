@@ -7,9 +7,11 @@ const pool = require('./routes/database');
 const bannerRoutes = require('./routes/bannerRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const hotlineRoutes = require('./routes/hotlineRoutes');
-const connectionRoutes = require('./routes/connectionRoutes'); // ✅ Thêm router kết nối sản phẩm
-const newsRoutes = require('./routes/newsRoutes'); // ✅ Thêm router bài viết tin tức
+const connectionRoutes = require('./routes/connectionRoutes');
+const newsRoutes = require('./routes/newsRoutes');
 const projectRoutes = require('./routes/projectRoutes');
+const machiningRoutes = require('./routes/machiningRoutes'); // ✅ Import router gia công riêng biệt vừa tạo
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -22,9 +24,11 @@ app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use('/api/banners', bannerRoutes);
 app.use('/api/jobs', jobRoutes);
 app.use('/api/hotlines', hotlineRoutes);
-app.use('/api/connections', connectionRoutes); // Định tuyến /api/connections thực tế
-app.use('/api/news', newsRoutes); // Định tuyến /api/news thực tế để chặn lỗi lặp /api/news/api/news ở Admin
-app.use('/api/projects', projectRoutes); //
+app.use('/api/connections', connectionRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/projects', projectRoutes);
+app.use('/api', machiningRoutes); // ✅ Định tuyến trung gian sang file tách riêng (giữ nguyên gốc đường dẫn /api/machining-request)
+
 // MOCK TẠM ENDPOINT UTILITIES ĐỂ PHỤC VỤ TRANG KHÁC (NẾU CÓ)
 app.get('/api/utilities', (req, res) => {
     res.json([]);
@@ -44,6 +48,7 @@ app.get('/', async (req, res) => {
     }
 });
 
+// KHỞI ĐỘNG SERVER
 app.listen(PORT, () => {
     console.log("🚀 Server đầu não đang chạy tại cổng: " + PORT);
 });
