@@ -51,19 +51,12 @@ app.get('/', async (req, res) => {
 // =========================================================
 
 // 1. API Hứng dữ liệu từ Zalo Mini App của User
-// =========================================================
-// API DÀNH CHO YÊU CẦU GIA CÔNG TỪ USER
-// =========================================================
-
-// 1. API Hứng dữ liệu từ Zalo Mini App của User
 app.post('/api/machining-request', async (req, res) => {
     try {
-        // ĐÃ THÊM: phone và email
         const { id, date, services, material, fileName, phone, email } = req.body;
 
         const servicesJson = JSON.stringify(services);
 
-        // ĐÃ SỬA: Thêm cột phone và email vào lệnh INSERT
         const query = `
             INSERT INTO machining_requests (order_id, created_at, services, material, file_name, phone, email, status)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -89,8 +82,8 @@ app.get('/api/machining-history', async (req, res) => {
             services: typeof item.services === 'string' ? JSON.parse(item.services) : item.services,
             material: item.material,
             fileName: item.file_name,
-            phone: item.phone, // ĐÃ THÊM
-            email: item.email, // ĐÃ THÊM
+            phone: item.phone,
+            email: item.email,
             status: item.status
         }));
 
@@ -98,4 +91,11 @@ app.get('/api/machining-history', async (req, res) => {
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
+});
+
+// =========================================================
+
+// Đã bổ sung app.listen để server chạy không bị sập
+app.listen(PORT, () => {
+    console.log("🚀 Server đầu não đang chạy tại cổng: " + PORT);
 });
