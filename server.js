@@ -9,7 +9,7 @@ const jobRoutes = require('./routes/jobRoutes');
 const hotlineRoutes = require('./routes/hotlineRoutes');
 const connectionRoutes = require('./routes/connectionRoutes'); // ✅ Thêm router kết nối sản phẩm
 const newsRoutes = require('./routes/newsRoutes'); // ✅ Thêm router bài viết tin tức
-
+const projectRoutes = require('./routes/projectRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -24,7 +24,7 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/hotlines', hotlineRoutes);
 app.use('/api/connections', connectionRoutes); // Định tuyến /api/connections thực tế
 app.use('/api/news', newsRoutes); // Định tuyến /api/news thực tế để chặn lỗi lặp /api/news/api/news ở Admin
-
+app.use('/api/projects', projectRoutes); //
 // MOCK TẠM ENDPOINT UTILITIES ĐỂ PHỤC VỤ TRANG KHÁC (NẾU CÓ)
 app.get('/api/utilities', (req, res) => {
     res.json([]);
