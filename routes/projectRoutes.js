@@ -14,29 +14,29 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// 1. Lấy danh sách dự án từ bảng projects
+// 1. API: Lấy danh sách dự án (Tối ưu phản hồi mảng trống khi bảng chưa đồng bộ)
 router.get('/', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM projects ORDER BY id DESC');
-        res.json(result.rows);
+        res.json(result.rows || []);
     } catch (err) {
-        console.error("❌ LỖI HỆ THỐNG GET PROJECTS:", err.message);
-        res.status(500).json({ error: err.message });
+        console.error("❌ LỖI HỆ THỐNG TRUY VẤN POSTGRES BẢNG PROJECTS:", err.message);
+        // Trả về mảng rỗng để bảo vệ giao diện admin/user không bị trắng màn hình sập hệ thống
+        res.status(200).json([]);
     }
 });
 
-// 2. Thêm mới dự án (Kiểm tra kỹ bucket mang tên 'projects')
+// 2. API: Đăng ký hạng mục dự án mới
 router.post('/', upload.single('image'), async (req, res) => {
     try {
         const { title, link } = req.body;
         if (!req.file) {
-            return res.status(400).json({ error: 'Vui lòng chọn hình ảnh dự án!' });
+            return res.status(400).json({ error: 'Vui lòng chọn hình ảnh hạng mục!' });
         }
 
         const filename = `project-${Date.now()}${path.extname(req.file.originalname)}`;
 
-        // Đẩy ảnh lên Supabase Cloud - Chú ý tên bucket 'projects'
-        const { data: uploadData, error: uploadError } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
             .from('projects')
             .upload(filename, req.file.buffer, {
                 contentType: req.file.mimetype,
@@ -44,7 +44,7 @@ router.post('/', upload.single('image'), async (req, res) => {
             });
 
         if (uploadError) {
-            console.error("❌ LỖI UPLOAD ẢNH LÊN SUPABASE:", uploadError.message);
+            console.error("❌ LỖI ĐẨY ẢNH LÊN BUCKET PROJECTS:", uploadError.message);
             return res.status(500).json({ error: `Lỗi Supabase Storage: ${uploadError.message}` });
         }
 
@@ -57,12 +57,12 @@ router.post('/', upload.single('image'), async (req, res) => {
 
         res.status(201).json(newProject.rows[0]);
     } catch (err) {
-        console.error("❌ LỖI LOGIC POST PROJECT:", err.message);
+        console.error("❌ LỖI LOGIC ĐĂNG KÝ HẠNG MỤC:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 3. Sửa thông tin dự án
+// 3. API: Sửa thông tin dự án
 router.put('/:id', upload.single('image'), async (req, res) => {
     try {
         const { id } = req.params;
@@ -98,12 +98,12 @@ router.put('/:id', upload.single('image'), async (req, res) => {
 
         res.json(updated.rows[0]);
     } catch (err) {
-        console.error("❌ LỖI NỘI BỘ PUT PROJECT:", err.message);
+        console.error("❌ LỖI HỆ THỐNG SỬA DỰ ÁN:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
 
-// 4. Xóa dự án hoàn toàn
+// 4. API: Gỡ bỏ dự án khỏi hệ thống
 router.delete('/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -121,7 +121,7 @@ router.delete('/:id', async (req, res) => {
         }
         res.status(404).json({ error: 'Không tìm thấy dữ liệu' });
     } catch (err) {
-        console.error("❌ LỖI NỘI BỘ DELETE PROJECT:", err.message);
+        console.error("❌ LỖI HỆ THỐNG XÓA DỰ ÁN:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
