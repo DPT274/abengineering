@@ -11,7 +11,7 @@ const connectionRoutes = require('./routes/connectionRoutes');
 const newsRoutes = require('./routes/newsRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const machiningRoutes = require('./routes/machiningRoutes'); // ✅ Import router gia công riêng biệt vừa tạo
-
+const aboutRouter = require('./routes/about');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -28,7 +28,7 @@ app.use('/api/connections', connectionRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api', machiningRoutes); // ✅ Định tuyến trung gian sang file tách riêng (giữ nguyên gốc đường dẫn /api/machining-request)
-
+app.use('/', aboutRouter);
 // MOCK TẠM ENDPOINT UTILITIES ĐỂ PHỤC VỤ TRANG KHÁC (NẾU CÓ)
 app.get('/api/utilities', (req, res) => {
     res.json([]);
