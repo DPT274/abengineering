@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('./database'); // Đảm bảo đúng file cấu hình database pool của bạn
+const pool = require('./database'); // Giữ nguyên kết nối database pool của bạn
 
 // ==========================================
-// 📱 1. API HỨNG YÊU CẦU GIA CÔNG TỪ USER (POST)
+// 📱 1. API HỨNG YÊU CẦU TỪ USER (POST)
+// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-request
 // ==========================================
-router.post('/api/machining-request', async (req, res) => {
+router.post('/machining-request', async (req, res) => {
     try {
         const { id, date, services, material, fileName, phone, email } = req.body;
         const servicesJson = JSON.stringify(services);
@@ -25,8 +26,9 @@ router.post('/api/machining-request', async (req, res) => {
 
 // ==========================================
 // 💻 2. API TRẢ LỊCH SỬ ĐƠN CHO TRANG ADMIN VÀ USER (GET)
+// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-history
 // ==========================================
-router.get('/api/machining-history', async (req, res) => {
+router.get('/machining-history', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM machining_requests ORDER BY id DESC');
         const formattedData = result.rows.map(item => ({
@@ -48,8 +50,9 @@ router.get('/api/machining-history', async (req, res) => {
 
 // ==========================================
 // 🛠️ 3. API CẬP NHẬT TRẠNG THÁI TIẾN ĐỘ ĐƠN (SỬA - PUT)
+// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-request/:id
 // ==========================================
-router.put('/api/machining-request/:id', async (req, res) => {
+router.put('/machining-request/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { status } = req.body;
@@ -74,8 +77,9 @@ router.put('/api/machining-request/:id', async (req, res) => {
 
 // ==========================================
 // ❌ 4. API XÓA HỒ SƠ KHỎI HỆ THỐNG (XÓA - DELETE)
+// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-request/:id
 // ==========================================
-router.delete('/api/machining-request/:id', async (req, res) => {
+router.delete('/machining-request/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const result = await pool.query('DELETE FROM machining_requests WHERE order_id = $1', [id]);
