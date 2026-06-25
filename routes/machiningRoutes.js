@@ -4,7 +4,6 @@ const pool = require('./database'); // Giữ nguyên kết nối database pool c
 
 // ==========================================
 // 📱 1. API HỨNG YÊU CẦU TỪ USER (POST)
-// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-request
 // ==========================================
 router.post('/machining-request', async (req, res) => {
     try {
@@ -26,7 +25,6 @@ router.post('/machining-request', async (req, res) => {
 
 // ==========================================
 // 💻 2. API TRẢ LỊCH SỬ ĐƠN CHO TRANG ADMIN VÀ USER (GET)
-// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-history
 // ==========================================
 router.get('/machining-history', async (req, res) => {
     try {
@@ -50,7 +48,6 @@ router.get('/machining-history', async (req, res) => {
 
 // ==========================================
 // 🛠️ 3. API CẬP NHẬT TRẠNG THÁI TIẾN ĐỘ ĐƠN (SỬA - PUT)
-// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-request/:id
 // ==========================================
 router.put('/machining-request/:id', async (req, res) => {
     try {
@@ -77,7 +74,6 @@ router.put('/machining-request/:id', async (req, res) => {
 
 // ==========================================
 // ❌ 4. API XÓA HỒ SƠ KHỎI HỆ THỐNG (XÓA - DELETE)
-// Đường dẫn thực tế khi gọi: BASE_URL + /api + /machining-request/:id
 // ==========================================
 router.delete('/machining-request/:id', async (req, res) => {
     try {
