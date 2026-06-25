@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('./database');
 
-// ==========================================
 // 🟢 1. API LẤY DANH SÁCH CHI NHÁNH (GET)
-// ==========================================
+// Endpoint thực tế: BASE_URL/api/branches
 router.get('/branches', async (req, res) => {
     try {
         const result = await pool.query('SELECT * FROM branches ORDER BY id DESC');
@@ -15,9 +14,7 @@ router.get('/branches', async (req, res) => {
     }
 });
 
-// ==========================================
 // ➕ 2. API TẠO CHI NHÁNH MỚI (POST)
-// ==========================================
 router.post('/branches', async (req, res) => {
     try {
         const { name, address, hotline } = req.body;
@@ -37,9 +34,7 @@ router.post('/branches', async (req, res) => {
     }
 });
 
-// ==========================================
 // 🛠️ 3. API CẬP NHẬT CHI NHÁNH (SỬA - PUT)
-// ==========================================
 router.put('/branches/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -62,9 +57,7 @@ router.put('/branches/:id', async (req, res) => {
     }
 });
 
-// ==========================================
 // ❌ 4. API XÓA CHI NHÁNH (DELETE)
-// ==========================================
 router.delete('/branches/:id', async (req, res) => {
     try {
         const { id } = req.params;

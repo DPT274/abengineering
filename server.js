@@ -3,7 +3,6 @@ const path = require('path');
 const cors = require('cors');
 const pool = require('./routes/database');
 
-// Khai báo import tất cả các router chính thức
 const bannerRoutes = require('./routes/bannerRoutes');
 const jobRoutes = require('./routes/jobRoutes');
 const hotlineRoutes = require('./routes/hotlineRoutes');
@@ -12,11 +11,7 @@ const newsRoutes = require('./routes/newsRoutes');
 const projectRoutes = require('./routes/projectRoutes');
 const machiningRoutes = require('./routes/machiningRoutes');
 const aboutRouter = require('./routes/about');
-
-// ==========================================
-// 🏢 BỔ SUNG: Import router Chi nhánh mới (An toàn luật Zalo)
-// ==========================================
-const branchRoutes = require('./routes/branchRoutes');
+const branchRoutes = require('./routes/branchRoutes'); // ✅ Khai báo route chi nhánh
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -35,19 +30,10 @@ app.use('/api/news', newsRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api', machiningRoutes);
 app.use('/', aboutRouter);
+app.use('/api', branchRoutes); // ✅ Kích hoạt cổng trung gian /api/branches
 
-// ==========================================
-// 🏢 BỔ SUNG: Định tuyến trung gian cho chi nhánh
-// Tạo ra đường dẫn chuẩn: BASE_URL + /api + /branches
-// ==========================================
-app.use('/api', branchRoutes);
+app.get('/api/utilities', (req, res) => { res.json([]); });
 
-// MOCK TẠM ENDPOINT UTILITIES ĐỂ PHỤC VỤ TRANG KHÁC (NẾU CÓ)
-app.get('/api/utilities', (req, res) => {
-    res.json([]);
-});
-
-// Route kiểm tra hệ thống hoạt động
 app.get('/', async (req, res) => {
     try {
         const dbTest = await pool.query('SELECT NOW()');
@@ -61,7 +47,6 @@ app.get('/', async (req, res) => {
     }
 });
 
-// KHỞI ĐỘNG SERVER
 app.listen(PORT, () => {
     console.log("🚀 Server đầu não đang chạy tại cổng: " + PORT);
 });

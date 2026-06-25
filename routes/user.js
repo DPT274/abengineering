@@ -7,7 +7,7 @@ router.post('/api/decode-phone', async (req, res) => {
     const { access_token, token } = req.body;
 
     // Khóa bí mật App của Tài (Nên đưa vào file .env)
-    const secret_key = 'PIufXB2A7B36YFrkR6Xf';
+    const secret_key = 'YquZWgAUrU636nDJJcx2';
 
     if (!access_token || !token) {
         return res.status(400).json({ success: false, message: "Thiếu mã xác thực từ Zalo" });
