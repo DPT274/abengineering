@@ -1,16 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const pool = require('./database'); // Đảm bảo đường dẫn chính xác tới file database.js của bạn (Sử dụng PostgreSQL)
+const pool = require('./database');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
 // =========================================================================
-// 1. CẤU HÌNH LƯU TRỮ ẢNH (MULTER) - PHỤC VỤ CHẤM CÔNG QUA CAMERA
+// CẤU HÌNH LƯU TRỮ ẢNH (MULTER)
 // =========================================================================
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        // Tạo hoặc trỏ về thư mục public/uploads nằm ở thư mục gốc của dự án
         const uploadDir = path.join(__dirname, '../public/uploads');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
@@ -18,7 +17,6 @@ const storage = multer.diskStorage({
         cb(null, uploadDir);
     },
     filename: function (req, file, cb) {
-        // Định danh tên file bằng mốc thời gian kèm số ngẫu nhiên để tránh trùng tên ảnh
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
         cb(null, uniqueSuffix + path.extname(file.originalname));
     }
@@ -26,170 +24,230 @@ const storage = multer.diskStorage({
 
 const upload = multer({
     storage: storage,
-    limits: { fileSize: 10 * 1024 * 1024 } // Giới hạn tối đa 10MB mỗi ảnh
+    limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-// API TẢI ẢNH: Nhận file từ Zalo App, lưu vào máy chủ và trả về đường dẫn URL công khai
+// API TẢI ẢNH UP LÊN SERVER
 router.post('/upload', upload.single('file'), (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({ success: false, message: 'Không nhận được dữ liệu hình ảnh!' });
         }
-        // Tạo link online đầy đủ dạng: https://abengineering.onrender.com/uploads/ten_file.jpg
         const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
         return res.status(200).json({ success: true, imageUrl: imageUrl });
     } catch (error) {
         console.error("Lỗi xử lý upload ảnh:", error);
-        return res.status(500).json({ success: false, message: 'Lỗi máy chủ trong quá trình xử lý file.' });
+        return res.status(500).json({ success: false, message: 'Lỗi máy chủ khi xử lý file.' });
     }
 });
 
 
 // =========================================================================
-// 2. KÊNH API DÀNH CHO NHÂN VIÊN (THAO TÁC TRÊN ZALO MINI APP)
+// KÊNH API CHẤM CÔNG THEO CA (MỚI NÂNG CẤP)
 // =========================================================================
 
-// API CHẤM CÔNG: Lưu thông tin định vị GPS và ảnh minh chứng của thợ máy
+// API CHẤM CÔNG ĐA CA: Kiểm tra trùng theo loại ca trong ngày
 router.post('/checkin', async (req, res) => {
-    const { phone, name, latitude, longitude, image_url } = req.body;
+    const { phone, name, latitude, longitude, image_url, checkin_type } = req.body;
 
-    if (!phone || !latitude || !longitude) {
-        return res.status(400).json({ success: false, message: "Thiếu thông tin tài khoản hoặc dữ liệu định vị GPS!" });
+    if (!phone || !latitude || !longitude || !checkin_type) {
+        return res.status(400).json({ success: false, message: "Thiếu thông tin tài khoản, định vị hoặc loại ca chấm công!" });
     }
 
     try {
-        // Kiểm tra xem nhân viên này trong ngày hôm nay đã gửi yêu cầu điểm danh chưa
-        const checkToday = await pool.query(
-            `SELECT * FROM attendances WHERE phone = $1 AND DATE(created_at) = CURRENT_DATE`,
-            [phone]
+        // Thay vì chặn cả ngày, giờ chỉ chặn nếu thợ cố tình bấm trùng loại ca (ví dụ: đã Vào ca sáng rồi lại bấm Vào ca sáng tiếp)
+        const checkDuplicateType = await pool.query(
+            `SELECT * FROM attendances 
+             WHERE phone = $1 AND checkin_type = $2 AND DATE(created_at) = CURRENT_DATE`,
+            [phone, checkin_type]
         );
 
-        if (checkToday.rows.length > 0) {
-            return res.status(400).json({ success: false, message: "Hôm nay bạn đã gửi yêu cầu điểm danh rồi, vui lòng không gửi lại!" });
+        if (checkDuplicateType.rows.length > 0) {
+            const typeNames = {
+                'morning_in': 'Vào ca sáng', 'morning_out': 'Ra ca sáng',
+                'afternoon_in': 'Vào ca chiều', 'afternoon_out': 'Ra ca chiều',
+                'ot_in': 'Vào tăng ca', 'ot_out': 'Ra tăng ca'
+            };
+            return res.status(400).json({
+                success: false,
+                message: `Hôm nay bạn đã thực hiện thao tác [${typeNames[checkin_type] || checkin_type}] rồi!`
+            });
         }
 
-        // Mặc định ca mới gửi sẽ ở trạng thái chờ duyệt (pending) và tiền lương cộng thêm ban đầu là 0đ
+        // Lưu thông tin chấm công kèm loại ca
         const result = await pool.query(
-            `INSERT INTO attendances (phone, name, latitude, longitude, image_url, status, salary_added) 
-             VALUES ($1, $2, $3, $4, $5, 'pending', 0) RETURNING *`,
-            [phone, name || 'Ẩn danh', latitude, longitude, image_url]
+            `INSERT INTO attendances (phone, name, latitude, longitude, image_url, status, salary_added, checkin_type) 
+             VALUES ($1, $2, $3, $4, $5, 'pending', 0, $6) RETURNING *`,
+            [phone, name || 'Ẩn danh', latitude, longitude, image_url, checkin_type]
         );
 
         res.status(200).json({ success: true, message: "Gửi yêu cầu chấm công thành công!", data: result.rows[0] });
     } catch (error) {
-        console.error("Lỗi API Checkin Nhân viên:", error);
-        res.status(500).json({ success: false, message: "Lỗi hệ thống, không thể ghi nhận chấm công lúc này." });
+        console.error("Lỗi API Checkin:", error);
+        res.status(500).json({ success: false, message: "Lỗi hệ thống ghi nhận chấm công." });
     }
 });
 
-// API LỊCH SỬ CÁ NHÂN: Thợ máy tự xem lại lịch sử chấm công và tổng tiền lương nhận được trong tháng
+// API LỊCH SỬ CÁ NHÂN: Tổng hợp cả lịch sử chấm công thường và tổng lương tháng
+// API LỊCH SỬ CÁ NHÂN
 router.get('/my-history/:phone', async (req, res) => {
     const { phone } = req.params;
     try {
-        // Lấy danh sách chấm công sắp xếp từ mới nhất đến cũ nhất
+        // ĐÃ SỬA: Thêm [phone] vào câu lệnh truy vấn
         const history = await pool.query(
             `SELECT * FROM attendances WHERE phone = $1 ORDER BY created_at DESC`,
             [phone]
         );
 
-        // Tính tổng tiền lương được duyệt (Bao gồm cả 'approved' - đúng giờ và 'late' - đi muộn) trong tháng hiện tại
+        // Tính tổng lương từ các ca làm thông thường được duyệt
         const salaryCalc = await pool.query(
-            `SELECT SUM(salary_added) as total_salary 
-             FROM attendances 
-             WHERE phone = $1 
-               AND status IN ('approved', 'late') 
+            `SELECT SUM(salary_added) as total_salary FROM attendances 
+             WHERE phone = $1 AND status IN ('approved', 'late') 
                AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`,
             [phone]
         );
 
+        // Tính thêm tổng lương từ lịch trình Tăng Ca đã được duyệt
+        const otSalaryCalc = await pool.query(
+            `SELECT SUM(salary_added) as total_ot FROM overtime_requests 
+             WHERE phone = $1 AND status = 'approved' 
+               AND ot_date >= DATE_TRUNC('month', CURRENT_DATE)`,
+            [phone] // ĐÃ SỬA: Thêm [phone]
+        );
+
+        const totalRegular = parseInt(salaryCalc.rows[0].total_salary) || 0;
+        const totalOvertime = parseInt(otSalaryCalc.rows[0].total_ot) || 0;
+
         res.status(200).json({
             success: true,
             history: history.rows,
-            totalSalary: salaryCalc.rows[0].total_salary || 0
+            totalSalary: totalRegular + totalOvertime
         });
     } catch (error) {
         console.error("Lỗi API lấy lịch sử cá nhân:", error);
-        res.status(500).json({ success: false, message: "Gặp lỗi khi đồng bộ lịch sử chấm công từ máy chủ." });
+        res.status(500).json({ success: false, message: "Gặp lỗi khi đồng bộ lịch sử chấm công." });
     }
 });
 
 
 // =========================================================================
-// 3. KÊNH API QUẢN TRỊ TOÀN DIỆN DÀNH CHO ADMIN (HỆ THỐNG DASHBOARD)
+// KÊNH API ĐĂNG KÝ TĂNG CA (OT) - DÀNH CHO TAB MỚI CỦA USER
 // =========================================================================
 
-// [READ] API ADMIN: Lấy toàn bộ danh sách chấm công của xưởng để đối chiếu dữ liệu
+// Thợ máy gửi đơn yêu cầu tăng ca
+router.post('/overtime/request', async (req, res) => {
+    const { phone, name, ot_date, ot_hours } = req.body;
+
+    if (!phone || !ot_date || !ot_hours) {
+        return res.status(400).json({ success: false, message: "Vui lòng nhập ngày và số giờ muốn tăng ca!" });
+    }
+
+    try {
+        // Kiểm tra xem ngày đó đã gửi yêu cầu tăng ca chưa để tránh spam
+        const checkDup = await pool.query(
+            `SELECT * FROM overtime_requests WHERE phone = $1 AND ot_date = $2`,
+            [phone, ot_date]
+        );
+
+        if (checkDup.rows.length > 0) {
+            return res.status(400).json({ success: false, message: "Bạn đã đăng ký tăng ca cho ngày này trước đó rồi!" });
+        }
+
+        const result = await pool.query(
+            `INSERT INTO overtime_requests (phone, name, ot_date, ot_hours, status, salary_added) 
+             VALUES ($1, $2, $3, $4, 'pending', 0) RETURNING *`,
+            [phone, name || 'Ẩn danh', ot_date, ot_hours]
+        );
+
+        res.status(200).json({ success: true, message: "Đã gửi đơn đăng ký tăng ca lên hệ thống!", data: result.rows[0] });
+    } catch (error) {
+        console.error("Lỗi đăng ký tăng ca:", error);
+        res.status(500).json({ success: false, message: "Lỗi máy chủ không thể gửi đơn tăng ca." });
+    }
+});
+
+// Thợ máy tự xem danh sách đơn tăng ca của mình
+router.get('/overtime/my-requests/:phone', async (req, res) => {
+    const { phone } = req.params;
+    try {
+        const result = await pool.query(
+            `SELECT * FROM overtime_requests WHERE phone = $1 ORDER BY ot_date DESC`,
+            [phone]
+        );
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Lỗi tải danh sách tăng ca cá nhân." });
+    }
+});
+
+
+// =========================================================================
+// KÊNH API ADMIN QUẢN LÝ (DASHBOARD)
+// =========================================================================
+
+// Lấy toàn bộ danh sách chấm công thường
 router.get('/admin/records', async (req, res) => {
     try {
         const result = await pool.query(`SELECT * FROM attendances ORDER BY created_at DESC`);
         res.status(200).json({ success: true, data: result.rows });
     } catch (error) {
-        console.error("Lỗi API Admin lấy danh sách tổng:", error);
         res.status(500).json({ success: false, message: "Không thể tải danh sách bản ghi chấm công." });
     }
 });
 
-// [CREATE] API ADMIN: Thêm thủ công một ca làm việc trực tiếp từ màn hình quản trị viên
-router.post('/admin/records', async (req, res) => {
-    const { phone, name, latitude, longitude, image_url, status, salary_added } = req.body;
-
-    if (!phone || !name) {
-        return res.status(400).json({ success: false, message: "Vui lòng nhập tên và thông tin định danh nhân viên!" });
-    }
-
-    try {
-        // Lưu trực tiếp số tiền lương nhập từ tay ở Admin Form vào Database
-        const result = await pool.query(
-            `INSERT INTO attendances (phone, name, latitude, longitude, image_url, status, salary_added, created_at) 
-             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING *`,
-            [phone, name, latitude || '10.7626', longitude || '106.6601', image_url || '', status || 'pending', salary_added || 0]
-        );
-        res.status(200).json({ success: true, message: "Đã thêm mới bản ghi chấm công thành công!", data: result.rows[0] });
-    } catch (error) {
-        console.error("Lỗi API Admin thêm mới thủ công:", error);
-        res.status(500).json({ success: false, message: "Lỗi hệ thống, không thể thêm bản ghi mới." });
-    }
-});
-
-// [UPDATE] API ADMIN: Chỉnh sửa thông tin, duyệt trạng thái và cập nhật tiền lương BẰNG TAY linh hoạt
+// Admin cập nhật/phê duyệt ca chấm công thường
 router.put('/admin/records/:id', async (req, res) => {
     const { id } = req.params;
-    const { name, phone, latitude, longitude, image_url, status, salary_added } = req.body;
-
+    const { name, phone, latitude, longitude, image_url, status, salary_added, checkin_type } = req.body;
     try {
-        // Cập nhật tất cả các trường dữ liệu bao gồm cả số tiền lương nhập thủ công (salary_added)
         const result = await pool.query(
             `UPDATE attendances 
-             SET name = $1, phone = $2, latitude = $3, longitude = $4, image_url = $5, status = $6, salary_added = $7 
-             WHERE id = $8 RETURNING *`,
-            [name, phone, latitude, longitude, image_url, status, salary_added, id]
+             SET name = $1, phone = $2, latitude = $3, longitude = $4, image_url = $5, status = $6, salary_added = $7, checkin_type = $8 
+             WHERE id = $9 RETURNING *`,
+            [name, phone, latitude, longitude, image_url, status, salary_added, checkin_type || 'morning_in', id]
         );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ success: false, message: "Bản ghi chấm công này không tồn tại hoặc đã bị xóa trước đó." });
-        }
-
-        res.status(200).json({ success: true, message: "Đã phê duyệt và cập nhật dữ liệu thành công!", data: result.rows[0] });
+        res.status(200).json({ success: true, message: "Cập nhật ca làm việc thành công!", data: result.rows[0] });
     } catch (error) {
-        console.error("Lỗi API Admin cập nhật/duyệt ca:", error);
-        res.status(500).json({ success: false, message: "Lỗi hệ thống, không thể cập nhật thông tin bản ghi." });
+        res.status(500).json({ success: false, message: "Lỗi khi duyệt ca làm việc." });
     }
 });
 
-// [DELETE] API ADMIN: Xóa vĩnh viễn một ca chấm công ra khỏi cơ sở dữ liệu
+// Admin xóa ca chấm công thường
 router.delete('/admin/records/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const result = await pool.query(`DELETE FROM attendances WHERE id = $1 RETURNING *`, [id]);
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ success: false, message: "Không tìm thấy bản ghi cần xóa." });
-        }
-
-        res.status(200).json({ success: true, message: "Đã xóa bản ghi chấm công thành công khỏi cơ sở dữ liệu!" });
+        await pool.query(`DELETE FROM attendances WHERE id = $1`, [id]);
+        res.status(200).json({ success: true, message: "Xóa bản ghi thành công!" });
     } catch (error) {
-        console.error("Lỗi API Admin xóa bản ghi:", error);
-        res.status(500).json({ success: false, message: "Lỗi hệ thống, không thể thực hiện thao tác xóa dữ liệu." });
+        res.status(500).json({ success: false, message: "Lỗi xóa bản ghi." });
+    }
+});
+
+// [MỚI] API ADMIN: Lấy tất cả danh sách đơn đăng ký tăng ca (OT) của toàn bộ xưởng
+router.get('/admin/overtime', async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT * FROM overtime_requests ORDER BY ot_date DESC, created_at DESC`);
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Không thể lấy danh sách đơn tăng ca." });
+    }
+});
+
+// [MỚI] API ADMIN: Phê duyệt tiền lương và trạng thái đơn tăng ca (OT) của thợ
+router.put('/admin/overtime/:id', async (req, res) => {
+    const { id } = req.params;
+    const { status, salary_added } = req.body; // status: 'approved' hoặc 'rejected', và số tiền thưởng tăng ca tương ứng
+    try {
+        const result = await pool.query(
+            `UPDATE overtime_requests 
+             SET status = $1, salary_added = $2 
+             WHERE id = $3 RETURNING *`,
+            [status, salary_added || 0, id]
+        );
+        res.status(200).json({ success: true, message: "Đã phê duyệt đơn tăng ca thành công!", data: result.rows[0] });
+    } catch (error) {
+        console.error("Lỗi duyệt tăng ca:", error);
+        res.status(500).json({ success: false, message: "Lỗi hệ thống khi phê duyệt đơn tăng ca." });
     }
 });
 

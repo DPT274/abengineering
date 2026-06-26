@@ -101,7 +101,33 @@ app.get('/', async (req, res) => {
     }
 });
 
-// KHỞI ĐỘNG SERVER
-app.listen(PORT, () => {
-    console.log("🚀 Server đầu não đang chạy tại cổng: " + PORT);
+// ... (các dòng code phía trên giữ nguyên)
+
+// HÀM KHỞI TẠO CSDL
+const initDatabase = async () => {
+    try {
+        await pool.query(`
+            ALTER TABLE attendances ADD COLUMN IF NOT EXISTS checkin_type VARCHAR(50) DEFAULT 'morning_in';
+            CREATE TABLE IF NOT EXISTS overtime_requests (
+                id SERIAL PRIMARY KEY,
+                phone VARCHAR(50),
+                name VARCHAR(100),
+                ot_date DATE,
+                ot_hours NUMERIC(5,2),
+                status VARCHAR(20) DEFAULT 'pending',
+                salary_added NUMERIC(15,2) DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log("✅ Database đã sẵn sàng (Đa ca & Tăng ca)");
+    } catch (err) {
+        console.error("⚠️ Lỗi khởi tạo DB:", err.message);
+    }
+};
+
+// Gọi hàm khởi tạo trước khi start server
+initDatabase().then(() => {
+    app.listen(PORT, () => {
+        console.log("🚀 Server đầu não đang chạy tại cổng: " + PORT);
+    });
 });
