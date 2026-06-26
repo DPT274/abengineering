@@ -2,11 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('./database');
 
-// ==========================================
-// 1. NHÂN VIÊN GỬI YÊU CẦU ĐIỂM DANH (Zalo App gọi)
-// ==========================================
+// 1. NHÂN VIÊN GỬI YÊU CẦU ĐIỂM DANH
 router.post('/checkin', async (req, res) => {
-    // Đã thêm image_url để nhận đường dẫn ảnh minh chứng từ Zalo gửi lên
     const { phone, name, latitude, longitude, image_url } = req.body;
 
     if (!phone || !latitude || !longitude) {
@@ -14,34 +11,29 @@ router.post('/checkin', async (req, res) => {
     }
 
     try {
-        // Kiểm tra xem hôm nay đã điểm danh chưa (tránh spam bấm nhiều lần)
         const checkToday = await pool.query(
-            `SELECT * FROM attendances 
-             WHERE phone = $1 AND DATE(created_at) = CURRENT_DATE`,
+            `SELECT * FROM attendances WHERE phone = $1 AND DATE(created_at) = CURRENT_DATE`,
             [phone]
         );
 
         if (checkToday.rows.length > 0) {
-            return res.status(400).json({ success: false, message: "Bạn đã điểm danh trong ngày hôm nay rồi!" });
+            return res.status(400).json({ success: false, message: "Hôm nay bạn đã điểm danh rồi!" });
         }
 
-        // Lưu vào DB với trạng thái 'pending' và lưu kèm link ảnh image_url
         const result = await pool.query(
             `INSERT INTO attendances (phone, name, latitude, longitude, image_url, status) 
              VALUES ($1, $2, $3, $4, $5, 'pending') RETURNING *`,
             [phone, name, latitude, longitude, image_url]
         );
 
-        res.status(200).json({ success: true, message: "Đã gửi yêu cầu điểm danh!", data: result.rows[0] });
+        res.status(200).json({ success: true, message: "Thành công!", data: result.rows[0] });
     } catch (error) {
-        console.error("Lỗi điểm danh:", error);
-        res.status(500).json({ success: false, error: "Lỗi máy chủ khi điểm danh." });
+        console.error("Lỗi:", error);
+        res.status(500).json({ success: false, message: "Lỗi Server, vui lòng thử lại." });
     }
 });
 
-// ==========================================
-// 2. LẤY LỊCH SỬ & LƯƠNG CỦA 1 NHÂN VIÊN (Zalo App gọi)
-// ==========================================
+// 2. LẤY LỊCH SỬ CÁ NHÂN
 router.get('/my-history/:phone', async (req, res) => {
     const { phone } = req.params;
     try {
@@ -50,13 +42,10 @@ router.get('/my-history/:phone', async (req, res) => {
             [phone]
         );
 
-        // Đã sửa logic: Dùng DATE_TRUNC để chỉ tính tổng lương trong đúng tháng và năm hiện tại
         const salaryCalc = await pool.query(
             `SELECT SUM(salary_added) as total_salary 
              FROM attendances 
-             WHERE phone = $1 
-               AND status IN ('approved', 'late') 
-               AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`,
+             WHERE phone = $1 AND status IN ('approved', 'late') AND created_at >= DATE_TRUNC('month', CURRENT_DATE)`,
             [phone]
         );
 
@@ -66,27 +55,31 @@ router.get('/my-history/:phone', async (req, res) => {
             totalSalary: salaryCalc.rows[0].total_salary || 0
         });
     } catch (error) {
-        console.error("Lỗi lấy lịch sử:", error);
-        res.status(500).json({ success: false, error: "Lỗi hệ thống." });
+        res.status(500).json({ success: false, message: "Lỗi hệ thống." });
     }
 });
 
-// ==========================================
-// 3. API CHO ADMIN DUYỆT ĐIỂM DANH (Admin Web gọi)
-// ==========================================
+// 3. ADMIN LẤY DANH SÁCH & DUYỆT (Gộp luôn vào đây cho gọn)
+router.get('/admin/records', async (req, res) => {
+    try {
+        const result = await pool.query(`SELECT * FROM attendances ORDER BY created_at DESC`);
+        res.status(200).json({ success: true, data: result.rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: "Lỗi load danh sách" });
+    }
+});
+
 router.put('/admin/approve/:id', async (req, res) => {
     const { id } = req.params;
-    const { status, salary_added } = req.body; // status: 'approved', 'late' hoặc 'rejected'
-
+    const { status, salary_added } = req.body;
     try {
         const result = await pool.query(
             `UPDATE attendances SET status = $1, salary_added = $2 WHERE id = $3 RETURNING *`,
             [status, salary_added, id]
         );
-        res.status(200).json({ success: true, message: "Đã duyệt điểm danh!", data: result.rows[0] });
+        res.status(200).json({ success: true, data: result.rows[0] });
     } catch (error) {
-        console.error("Lỗi duyệt điểm danh:", error);
-        res.status(500).json({ success: false, error: "Lỗi hệ thống." });
+        res.status(500).json({ success: false, message: "Lỗi hệ thống." });
     }
 });
 
