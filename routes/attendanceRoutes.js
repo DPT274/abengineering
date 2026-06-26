@@ -1,6 +1,48 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('./database'); // Đảm bảo trỏ đúng file database.js của bạn
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+
+// ==========================================
+// CẤU HÌNH NƠI LƯU TRỮ ẢNH TRÊN SERVER
+// ==========================================
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        // Trỏ về thư mục public/uploads ở gốc dự án
+        const uploadDir = path.join(__dirname, '../public/uploads');
+        // Tự động tạo thư mục nếu chưa tồn tại
+        if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        cb(null, uploadDir);
+    },
+    filename: function (req, file, cb) {
+        // Tạo tên file ngẫu nhiên dựa trên thời gian để không bị trùng lặp
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const upload = multer({ storage: storage });
+
+// ==========================================
+// API MỚI: NHẬN FILE ẢNH TỪ ĐIỆN THOẠI VÀ TRẢ VỀ LINK ONLINE
+// ==========================================
+router.post('/upload', upload.single('file'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Không nhận được file ảnh!' });
+        }
+        // Tạo link ảnh công khai dạng: https://abengineering.onrender.com/uploads/ten_file.jpg
+        const imageUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
+        return res.status(200).json({ success: true, imageUrl: imageUrl });
+    } catch (error) {
+        console.error("Lỗi upload ảnh:", error);
+        return res.status(500).json({ success: false, message: 'Lỗi xử lý file trên server.' });
+    }
+});
 
 // 1. NHÂN VIÊN GỬI YÊU CẦU ĐIỂM DANH TỪ ZALO
 router.post('/checkin', async (req, res) => {
