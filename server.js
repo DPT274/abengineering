@@ -1,7 +1,7 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
-const axios = require('axios'); // BỔ SUNG: Dùng để gọi API sang Zalo
+const axios = require('axios');
 const pool = require('./routes/database');
 
 // Khai báo import tất cả các router chính thức
@@ -14,6 +14,8 @@ const projectRoutes = require('./routes/projectRoutes');
 const machiningRoutes = require('./routes/machiningRoutes');
 const aboutRouter = require('./routes/about');
 const branchRoutes = require('./routes/branchRoutes');
+const authRoutes = require('./routes/authRoutes');
+const userRoutes = require('./routes/user');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -33,14 +35,15 @@ app.use('/api/projects', projectRoutes);
 app.use('/api', machiningRoutes);
 app.use('/api', branchRoutes);
 app.use('/', aboutRouter);
-
-// ==========================================
-// 🔐 BỔ SUNG: API GIẢI MÃ SĐT & LẤY THÔNG TIN THẬT TỪ ZALO
-// ==========================================
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+// =======================================================
+// 🔐 NƠI DUY NHẤT XỬ LÝ: API GIẢI MÃ SĐT & LẤY THÔNG TIN ZALO
+// =======================================================
 app.post('/api/decode-phone', async (req, res) => {
     const { access_token, token } = req.body;
 
-    // Khóa bí mật App của bạn (Secret Key)
+    // LƯU Ý: Đảm bảo chuỗi Secret Key này trùng khớp hoàn toàn với Zalo Developer Console
     const secret_key = 'YquZWgAUrU636nDJJcx2';
 
     if (!access_token || !token) {
@@ -56,6 +59,15 @@ app.post('/api/decode-phone', async (req, res) => {
             }
         });
 
+        // Bắt lỗi logic từ phía Zalo (Ví dụ: token hết hạn, sai ứng dụng...)
+        if (response.data && response.data.error) {
+            console.error("❌ Zalo Graph API từ chối giải mã:", response.data);
+            return res.status(400).json({
+                success: false,
+                message: response.data.message || "Zalo từ chối giải mã (Sai Key hoặc App chưa kích hoạt)"
+            });
+        }
+
         if (response.data && response.data.data) {
             let phone = response.data.data.number || "";
             let name = response.data.data.name || "";
@@ -65,6 +77,8 @@ app.post('/api/decode-phone', async (req, res) => {
                 phone = '0' + phone.slice(2);
             }
 
+            // (Tài có thể bổ sung viết lệnh INSERT/UPDATE DB tại đây)
+
             return res.status(200).json({
                 success: true,
                 phone: phone,
@@ -72,11 +86,15 @@ app.post('/api/decode-phone', async (req, res) => {
                 avatar: avatar
             });
         } else {
-            return res.status(400).json({ success: false, message: "Zalo từ chối giải mã (Sai Key hoặc App chưa kích hoạt)" });
+            return res.status(400).json({ success: false, message: "Cấu trúc phản hồi từ Zalo không hợp lệ" });
         }
     } catch (error) {
-        console.error("Lỗi gọi API Zalo:", error.response ? error.response.data : error.message);
-        return res.status(500).json({ success: false, error: "Lỗi kết nối máy chủ Zalo Graph" });
+        console.error("❌ Lỗi kết nối HTTP sang Zalo:", error.response ? error.response.data : error.message);
+        return res.status(500).json({
+            success: false,
+            error: "Lỗi kết nối máy chủ Zalo Graph",
+            details: error.response ? error.response.data : error.message
+        });
     }
 });
 

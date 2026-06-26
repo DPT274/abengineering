@@ -1,20 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const pool = require('./database'); // Đảm bảo bạn đã import kết nối PostgreSQL của bạn vào đây
 
-// 🔐 API GIẢI MÃ SĐT & LẤY THÔNG TIN THẬT TỪ ZALO
 router.post('/api/decode-phone', async (req, res) => {
     const { access_token, token } = req.body;
 
-    // Khóa bí mật App của Tài (Nên đưa vào file .env)
-    const secret_key = 'YquZWgAUrU636nDJJcx2';
+    // Khóa bí mật App của bạn (Bắt buộc lấy từ dev.zalo.me)
+    const secret_key = 'PIufXB2A7B36YFrkR6Xf';
 
     if (!access_token || !token) {
         return res.status(400).json({ success: false, message: "Thiếu mã xác thực từ Zalo" });
     }
 
     try {
-        // Gọi thẳng vào tim của Zalo Graph API
+        // 1. Gọi Zalo để lấy hàng thật
         const response = await axios.get('https://graph.zalo.me/v2.0/me/info', {
             headers: {
                 'access_token': access_token,
@@ -23,19 +23,31 @@ router.post('/api/decode-phone', async (req, res) => {
             }
         });
 
-        // Zalo trả về hàng thật
         if (response.data && response.data.data) {
             let phone = response.data.data.number || "";
-            let name = response.data.data.name || "";
-            let avatar = response.data.data.picture || "";
+            let name = response.data.data.name || response.data.name || "Khách Hàng Kỹ Thuật";
+            let avatar = response.data.data.picture || response.data.picture?.data?.url || "";
 
-            // Xử lý đầu số 84 -> 0
             if (phone.startsWith('84')) {
                 phone = '0' + phone.slice(2);
             }
 
-            // (Tài có thể viết lệnh INSERT DB ở đây)
+            // 2. LƯU VÀO CƠ SỞ DỮ LIỆU POSTGRESQL (Supabase)
+            try {
+                await pool.query(
+                    `INSERT INTO customers (phone, name, avatar) 
+                     VALUES ($1, $2, $3) 
+                     ON CONFLICT (phone) DO UPDATE 
+                     SET name = EXCLUDED.name, avatar = EXCLUDED.avatar`,
+                    [phone, name, avatar]
+                );
+                console.log("Đã lưu khách hàng vào Database:", name, phone);
+            } catch (dbErr) {
+                console.error("Lỗi khi lưu vào Database:", dbErr.message);
+                // Dù DB lỗi, vẫn cứ trả thông tin về cho App chạy tiếp
+            }
 
+            // 3. Trả kết quả về cho Zalo Mini App hiển thị
             res.json({
                 success: true,
                 phone: phone,
@@ -43,10 +55,10 @@ router.post('/api/decode-phone', async (req, res) => {
                 avatar: avatar
             });
         } else {
-            res.status(400).json({ success: false, message: "Zalo từ chối giải mã (Lỗi App chưa kích hoạt hoặc sai Key)" });
+            res.status(400).json({ success: false, message: "Zalo từ chối giải mã!" });
         }
     } catch (error) {
-        console.error("Lỗi gọi API Zalo:", error.response ? error.response.data : error.message);
+        console.error("Lỗi gọi API Zalo:", error.message);
         res.status(500).json({ success: false, error: "Lỗi kết nối máy chủ Zalo Graph" });
     }
 });
