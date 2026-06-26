@@ -16,7 +16,7 @@ const aboutRouter = require('./routes/about');
 const branchRoutes = require('./routes/branchRoutes');
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/user');
-
+const attendanceRoutes = require('./routes/attendanceRoutes');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -37,6 +37,7 @@ app.use('/api', branchRoutes);
 app.use('/', aboutRouter);
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/attendance', attendanceRoutes);
 // =======================================================
 // 🔐 NƠI DUY NHẤT XỬ LÝ: API GIẢI MÃ SĐT & LẤY THÔNG TIN ZALO
 // =======================================================
